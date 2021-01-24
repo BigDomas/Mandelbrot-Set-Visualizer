@@ -1,0 +1,76 @@
+float MAX_ITERATIONS = 3000;   //Number of iterations per pixel
+float ESCAPE_RADIUS = 8;       //Radius of escape boundary
+float EPSILON_RADIUS = 0.0001; //Small number boundary for convergence to 0
+double[] render = {-0.25,0,1,1};             //Rendering settings (xCenter, yCenter, xZoom, yZoom)
+double[] oldScale = {render[2], render[3]};  //Old Zoom settings (needed for panning calculations)
+
+
+void setup(){
+  size(1000,1000);
+  frameRate(30);
+  colorMode(HSB);
+  EPSILON_RADIUS *= EPSILON_RADIUS;  //Square the constants to get rid of square roots elsewhere
+  ESCAPE_RADIUS *= ESCAPE_RADIUS;
+  render[2] = (2/render[2])*(((double)width)/Math.max(width, height));  //Inverts Zoom variables for ease of later calculations
+  render[3] = (2/render[3])*(((double)height)/Math.max(width, height));
+  render();
+}
+
+
+void draw(){}  //Has to be included for user inputs to work
+
+
+void render(){ //Renders the image with the current render settings
+  println(render[0]+", "+render[1]+", "+render[2]+", "+render[3]);
+  loadPixels();
+  for(int i = 0; i < width; i++){
+    for(int j = 0; j < height; j++){
+      int index = j*width+i;
+      double x = mapDouble(i, 0, width, render[0] - render[2], render[0] + render[2]);
+      double y = mapDouble(j, 0, height, -render[1] - render[3], -render[1] + render[3]);
+      
+      Complex c = new Complex(x, y);
+      Complex z = new Complex(x, y);
+      double iterations = z.iterate(c);
+      
+      if(iterations == -1)
+        pixels[index] = color(0);
+      else 
+        pixels[index] = colorAlgorithm(iterations);
+    }
+  }
+  updatePixels();
+  oldScale[0] = render[2];
+  oldScale[1] = render[3];
+}
+
+
+//Converts the number of iterations before escape bound is crossed and turns it into a color.
+color colorAlgorithm(double n){
+  double scaledValue = 130*Math.log(n);
+  //return color((int)(scaledValue)%255,255,255);                                                         //Spectrum
+  return color((int)(scaledValue)%255,255,(int)mapDouble(Math.sin(scaledValue*0.06283),-1,1,150,255));  //Spectrum - Oscillating Brightness
+  //return color(0,255,(int)mapDouble(Math.sin(scaledValue*PI*0.02),-1,1,30,255));                        //Red - Oscillating Brightness
+  //return color(255);                                                                                    //Solid White
+}
+
+
+//Double version of integrated map() function
+double mapDouble(double x, double a, double b, double c, double d){
+  return (x-a)*(d-c)/(b-a)+c;
+}
+
+
+//Updates pan rendering settings to center picture at mouse position and renders image with new settings
+void mousePressed(){
+  double[] newRender = {render[0] + (2*oldScale[0])*((double)mouseX/width - 0.5), render[1] - (2*oldScale[1])*((double)mouseY/height - 0.5), render[2], render[3]};
+  render = newRender;
+  render();
+}
+
+
+//Updates zoom rendering settings. Won't render new picture.
+void mouseWheel(MouseEvent event){
+  render[2]+=0.1*render[2]*event.getCount();
+  render[3]+=0.1*render[3]*event.getCount();
+}
